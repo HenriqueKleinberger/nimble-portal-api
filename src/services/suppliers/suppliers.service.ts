@@ -13,16 +13,4 @@ export class SuppliersService {
       create: supplierData,
     });
   }
-
-  //   async findById(id: number): Promise<Supplier> {
-  //     return this.supplierRepository.findOne({ where: { id } });
-  //   }
-
-  //   async findByInternalId(internalId: string): Promise<Supplier> {
-  //     return this.supplierRepository.findOne({ where: { internal_id: internalId } });
-  //   }
-
-  //   async findAll(): Promise<Supplier[]> {
-  //     return this.supplierRepository.find();
-  //   }
 }

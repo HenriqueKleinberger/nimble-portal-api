@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { UploadCsvResponseDto } from './dto/UploadCsvResponseDto';
 import { CsvRow, InvoiceCsvMapper } from './csv/invoice-csv.mapper';
 import { SuppliersService } from '../suppliers/suppliers.service';
+import { CurrencyService } from '../currencies/currencies.service';
 import { QueryFiltersDto } from 'src/controllers/Invoices/dto/QueryFiltersDto';
 import {
   ByStatusResponseDto,
@@ -16,6 +17,7 @@ export class InvoicesService {
   constructor(
     private prisma: PrismaService,
     private suppliersService: SuppliersService,
+    private currencyService: CurrencyService,
   ) {}
   async uploadCsv(file: Express.Multer.File): Promise<UploadCsvResponseDto> {
     if (!file) throw new BadRequestException('No file uploaded');
@@ -67,7 +69,7 @@ export class InvoicesService {
 
   async getByStatus(filters: QueryFiltersDto): Promise<ByStatusResponseDto[]> {
     const result = await this.prisma.vwInvoice.groupBy({
-      by: ['status'],
+      by: ['status', 'currency'],
       _sum: {
         cost: true,
       },
@@ -75,9 +77,25 @@ export class InvoicesService {
       where: this.getWhereClause(filters),
     });
 
-    return result.map((item) => ({
-      status: item.status?.toLocaleLowerCase(),
-      totalAmount: item._sum.cost || 0,
+    await this.currencyService.getRates();
+
+    const totals: Record<string, number> = {};
+
+    for (const item of result) {
+      const rate = await this.currencyService.getRate(item.currency);
+      const amount = (item._sum.cost || 0) / (rate || 1);
+      const status = item.status?.toLowerCase() || 'unknown';
+
+      if (!totals[status]) {
+        totals[status] = amount;
+      } else {
+        totals[status] += amount;
+      }
+    }
+
+    return Object.keys(totals).map((key) => ({
+      status: key,
+      totalAmount: parseFloat(totals[key].toFixed(2)),
     }));
   }
 
@@ -85,7 +103,7 @@ export class InvoicesService {
     filters: QueryFiltersDto,
   ): Promise<OverdueTrendOverTimeResponseDto[]> {
     const result = await this.prisma.vwInvoice.groupBy({
-      by: ['month', 'year'],
+      by: ['month', 'year', 'currency'],
       _sum: {
         cost: true,
       },
@@ -93,9 +111,25 @@ export class InvoicesService {
       where: this.getWhereClause({ ...filters, status: 'OVERDUE' }),
     });
 
-    return result.map((item) => ({
-      month: `${item.month}/${item.year}`,
-      totalAmount: item._sum.cost || 0,
+    await this.currencyService.getRates();
+
+    const totals: Record<string, number> = {};
+
+    for (const item of result) {
+      const rate = await this.currencyService.getRate(item.currency);
+      const amount = (item._sum.cost || 0) / (rate || 1);
+      const month = `${item.month}/${item.year}`;
+
+      if (!totals[month]) {
+        totals[month] = amount;
+      } else {
+        totals[month] += amount;
+      }
+    }
+
+    return Object.keys(totals).map((key) => ({
+      month: key,
+      totalAmount: parseFloat(totals[key].toFixed(2)),
     }));
   }
 
@@ -103,7 +137,7 @@ export class InvoicesService {
     filters: QueryFiltersDto,
   ): Promise<MonthlyTotalsResponseDto[]> {
     const result = await this.prisma.vwInvoice.groupBy({
-      by: ['month', 'year'],
+      by: ['month', 'year', 'currency'],
       _sum: {
         cost: true,
       },
@@ -111,9 +145,25 @@ export class InvoicesService {
       where: this.getWhereClause({ ...filters }),
     });
 
-    return result.map((item) => ({
-      month: `${item.month}/${item.year}`,
-      totalAmount: item._sum.cost || 0,
+    await this.currencyService.getRates();
+
+    const totals: Record<string, number> = {};
+
+    for (const item of result) {
+      const rate = await this.currencyService.getRate(item.currency);
+      const amount = (item._sum.cost || 0) / (rate || 1);
+      const month = `${item.month}/${item.year}`;
+
+      if (!totals[month]) {
+        totals[month] = amount;
+      } else {
+        totals[month] += amount;
+      }
+    }
+
+    return Object.keys(totals).map((key) => ({
+      month: key,
+      totalAmount: parseFloat(totals[key].toFixed(2)),
     }));
   }
 
@@ -121,7 +171,7 @@ export class InvoicesService {
     filters: QueryFiltersDto,
   ): Promise<BySupplierResponseDto[]> {
     const result = await this.prisma.vwInvoice.groupBy({
-      by: ['supplierId'],
+      by: ['supplierId', 'currency'],
       _sum: {
         cost: true,
       },
@@ -129,9 +179,24 @@ export class InvoicesService {
       where: this.getWhereClause({ ...filters }),
     });
 
-    return result.map((item) => ({
-      supplierId: item.supplierId,
-      totalAmount: item._sum.cost || 0,
+    await this.currencyService.getRates();
+
+    const totals: Record<string, number> = {};
+
+    for (const item of result) {
+      const rate = await this.currencyService.getRate(item.currency);
+      const amount = (item._sum.cost || 0) / (rate || 1);
+
+      if (!totals[item.supplierId]) {
+        totals[item.supplierId] = amount;
+      } else {
+        totals[item.supplierId] += amount;
+      }
+    }
+
+    return Object.keys(totals).map((key) => ({
+      supplierId: key,
+      totalAmount: parseFloat(totals[key].toFixed(2)),
     }));
   }
 
