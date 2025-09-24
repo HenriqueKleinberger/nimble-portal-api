@@ -50,13 +50,14 @@ model Invoice {
   supplier    Supplier  @relation(fields: [supplierId], references: [id])
 }
 
-view InvoiceMonthly {
+view VwInvoice {
   month       Int
   year        Int
   cost        Float
   status      String
   supplierId  String
   currency    String
+  dueDate        DateTime
 
-  @@map("InvoiceMonthly") // maps to the view in Postgres
+  @@map("VwInvoice")
 }

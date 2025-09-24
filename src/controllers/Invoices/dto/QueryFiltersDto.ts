@@ -28,6 +28,6 @@ export class QueryFiltersDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @IsIn(['status', 'supplier', 'date'], { each: true })
+  @IsIn(['status', 'supplier', 'month', 'year'], { each: true })
   groupBy?: GroupByOption[];
 }

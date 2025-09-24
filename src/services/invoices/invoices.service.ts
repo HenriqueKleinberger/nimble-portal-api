@@ -4,10 +4,12 @@ import { UploadCsvResponseDto } from './dto/UploadCsvResponseDto';
 import { CsvRow, InvoiceCsvMapper } from './csv/invoice-csv.mapper';
 import { SuppliersService } from '../suppliers/suppliers.service';
 import { QueryFiltersDto } from 'src/controllers/Invoices/dto/QueryFiltersDto';
-import { MonthlyTotalsResponseDto } from 'src/controllers/Invoices/dto/MonthlyTotalsResponseDto';
-import { groupBy } from 'rxjs';
-
-type GroupByOption = 'status' | 'supplierId' | 'month' | 'year';
+import {
+  ByStatusResponseDto,
+  BySupplierResponseDto,
+  MonthlyTotalsResponseDto,
+  OverdueTrendOverTimeResponseDto,
+} from 'src/controllers/Invoices/dto/MonthlyTotalsResponseDto';
 
 @Injectable()
 export class InvoicesService {
@@ -63,35 +65,94 @@ export class InvoicesService {
     };
   }
 
-  async getMonthlyTotals(
-    filters: QueryFiltersDto,
-  ): Promise<MonthlyTotalsResponseDto[]> {
-    const where = {
-      ...(filters.from && { date: { gte: new Date(filters.from) } }),
-      ...(filters.to && { date: { lte: new Date(filters.to) } }),
-      ...(filters.status && { status: filters.status }),
-      ...(filters.supplierId && { supplierId: filters.supplierId }),
-    };
-
-    const groupBy: GroupByOption[] = [];
-
-    const result = await this.prisma.invoiceMonthly.groupBy({
-      by: filters.groupBy || ['month', 'year'],
+  async getByStatus(filters: QueryFiltersDto): Promise<ByStatusResponseDto[]> {
+    const result = await this.prisma.vwInvoice.groupBy({
+      by: ['status'],
       _sum: {
         cost: true,
       },
-      where,
+      orderBy: { status: 'asc' },
+      where: this.getWhereClause(filters),
     });
 
-    return result.map((item) => {
-      const monthlyTotalsResponseDto: MonthlyTotalsResponseDto =
-        {} as MonthlyTotalsResponseDto;
-      monthlyTotalsResponseDto.month = item?.month?.toString().padStart(2, '0');
-      monthlyTotalsResponseDto.year = item?.year?.toString();
-      monthlyTotalsResponseDto.supplierId = item.supplierId;
-      monthlyTotalsResponseDto.status = item.status;
-      monthlyTotalsResponseDto.totalAmount = item._sum.cost || 0;
-      return monthlyTotalsResponseDto;
+    return result.map((item) => ({
+      status: item.status?.toLocaleLowerCase(),
+      totalAmount: item._sum.cost || 0,
+    }));
+  }
+
+  async getOverdueTrendOverTime(
+    filters: QueryFiltersDto,
+  ): Promise<OverdueTrendOverTimeResponseDto[]> {
+    const result = await this.prisma.vwInvoice.groupBy({
+      by: ['month', 'year'],
+      _sum: {
+        cost: true,
+      },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+      where: this.getWhereClause({ ...filters, status: 'OVERDUE' }),
     });
+
+    return result.map((item) => ({
+      month: `${item.month}/${item.year}`,
+      totalAmount: item._sum.cost || 0,
+    }));
+  }
+
+  async getMonthlyTotals(
+    filters: QueryFiltersDto,
+  ): Promise<MonthlyTotalsResponseDto[]> {
+    const result = await this.prisma.vwInvoice.groupBy({
+      by: ['month', 'year'],
+      _sum: {
+        cost: true,
+      },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+      where: this.getWhereClause({ ...filters }),
+    });
+
+    return result.map((item) => ({
+      month: `${item.month}/${item.year}`,
+      totalAmount: item._sum.cost || 0,
+    }));
+  }
+
+  async getTotalAmountBySupplier(
+    filters: QueryFiltersDto,
+  ): Promise<BySupplierResponseDto[]> {
+    const result = await this.prisma.vwInvoice.groupBy({
+      by: ['supplierId'],
+      _sum: {
+        cost: true,
+      },
+      orderBy: [{ supplierId: 'asc' }],
+      where: this.getWhereClause({ ...filters }),
+    });
+
+    return result.map((item) => ({
+      supplierId: item.supplierId,
+      totalAmount: item._sum.cost || 0,
+    }));
+  }
+
+  private getWhereClause(filters: QueryFiltersDto) {
+    return {
+      ...(filters.from || filters.to
+        ? {
+            dueDate: {
+              ...(filters.from && { gte: new Date(filters.from) }),
+              ...(filters.to && { lte: new Date(filters.to) }),
+            },
+          }
+        : {}),
+      ...(filters.status && { status: filters.status }),
+      ...(filters.supplierId && {
+        supplierId: {
+          in: Array.isArray(filters.supplierId)
+            ? filters.supplierId
+            : [filters.supplierId], // ensure it's always an array
+        },
+      }),
+    };
   }
 }
