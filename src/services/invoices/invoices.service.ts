@@ -10,7 +10,7 @@ import {
   BySupplierResponseDto,
   MonthlyTotalsResponseDto,
   OverdueTrendOverTimeResponseDto,
-} from 'src/controllers/Invoices/dto/MonthlyTotalsResponseDto';
+} from 'src/controllers/Invoices/dto/ApiResponsesDto';
 
 @Injectable()
 export class InvoicesService {
@@ -40,21 +40,8 @@ export class InvoicesService {
 
     for (const row of rows) {
       try {
-        const supplierData = InvoiceCsvMapper.mapToSupplier(row);
-        await this.suppliersService.upsertByInternalId(
-          row.supplier_internal_id,
-          supplierData,
-        );
-
-        const invoiceData = InvoiceCsvMapper.mapToInvoice(
-          row,
-          row.supplier_internal_id,
-        );
-        await this.prisma.invoice.upsert({
-          where: { id: row.invoice_id },
-          update: invoiceData,
-          create: invoiceData,
-        });
+        await this.suppliersService.saveEditSupplier(row);
+        await this.saveInvoice(row);
         invoicesUpserted++;
       } catch (error) {
         errors.push(`Row ${row.invoice_id}: ${error.message}`);
@@ -65,6 +52,18 @@ export class InvoicesService {
       invoicesUpserted,
       errors,
     };
+  }
+
+  private async saveInvoice(row: CsvRow) {
+    const invoiceData = InvoiceCsvMapper.mapToInvoice(
+      row,
+      row.supplier_internal_id,
+    );
+    await this.prisma.invoice.upsert({
+      where: { id: row.invoice_id },
+      update: invoiceData,
+      create: invoiceData,
+    });
   }
 
   async getByStatus(filters: QueryFiltersDto): Promise<ByStatusResponseDto[]> {

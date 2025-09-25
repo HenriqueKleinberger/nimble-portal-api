@@ -104,7 +104,6 @@ export class InvoiceCsvMapper {
   }
 
   private static parseDate(dateStr: string): Date {
-    // Parse DD/MM/YYYY format
     const [day, month, year] = dateStr.split('/');
     return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
   }

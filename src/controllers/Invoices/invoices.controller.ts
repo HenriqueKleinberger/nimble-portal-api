@@ -16,7 +16,7 @@ import {
   BySupplierResponseDto,
   MonthlyTotalsResponseDto,
   OverdueTrendOverTimeResponseDto,
-} from './dto/MonthlyTotalsResponseDto';
+} from './dto/ApiResponsesDto';
 
 @Controller('invoices')
 export class InvoicesController {
@@ -31,7 +31,7 @@ export class InvoicesController {
       properties: {
         file: {
           type: 'string',
-          format: 'binary', // REQUIRED for file uploads in Swagger UI
+          format: 'binary',
         },
       },
     },
