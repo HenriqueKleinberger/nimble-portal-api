@@ -15,6 +15,7 @@ DATABASE_URL=DATABASE_CONNECTION_STRING
 CURRENCYFREAKS_API_KEY=API_KEY
 ```
 
+```bash
 # Clone the repository
 
 git clone https://github.com/HenriqueKleinberger/nimble-portal-api
@@ -31,3 +32,4 @@ npx prisma migrate dev
 # Start the application
 
 npm run start:dev
+```
